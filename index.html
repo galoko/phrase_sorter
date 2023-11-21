@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phrase Sorter</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #sortedPhrases { margin-top: 20px; }
+        button { margin: 5px; }
+    </style>
+</head>
+<body>
+    <div>
+        <textarea id="phraseInput" placeholder="Enter phrases, each on a new line" style="width: 300px; height: 100px;"></textarea>
+        <button onclick="startSorting()">Start Sorting</button>
+    </div>
+    <div id="choiceContainer" style="display: none;">
+        <button id="choice1" onclick="userChoice(1)"></button>
+        <button id="choice2" onclick="userChoice(2)"></button>
+    </div>
+    <div id="sortedPhrases"></div>
+
+    <script>
+        let phrases = [];
+        let userChoiceResolver;
+        let comparisons = {};
+
+        async function startSorting() {
+            let input = document.getElementById('phraseInput').value;
+            phrases = input.split('\n').map(phrase => phrase.trim()).filter(phrase => phrase);
+            loadComparisons();
+            document.getElementById('choiceContainer').style.display = 'block';
+            let sortedPhrases = await mergeInsertionSort(phrases);
+            displaySortedPhrases(sortedPhrases);
+            document.getElementById('choiceContainer').style.display = 'none';
+            saveComparisons();
+        }
+
+        function loadComparisons() {
+            let savedComparisons = localStorage.getItem('comparisons');
+            if (savedComparisons) {
+                comparisons = JSON.parse(savedComparisons);
+            }
+        }
+
+        function saveComparisons() {
+            localStorage.setItem('comparisons', JSON.stringify(comparisons));
+        }
+
+        function displaySortedPhrases(sortedPhrases) {
+            document.getElementById('sortedPhrases').innerHTML = `<strong>Sorted Phrases:</strong> <br>${sortedPhrases.join('<br>')}`;
+        }
+
+        function userChoice(choice) {
+            if (userChoiceResolver) {
+                userChoiceResolver(choice);
+            }
+        }
+
+        async function askUser(a, b) {
+            let comparisonKey = [a, b].sort().join(':');
+            if (comparisons[comparisonKey] !== undefined) {
+                return comparisons[comparisonKey];
+            }
+
+            return new Promise(resolve => {
+                document.getElementById('choice1').textContent = a;
+                document.getElementById('choice2').textContent = b;
+                userChoiceResolver = (choice) => {
+                    comparisons[comparisonKey] = choice;
+                    resolve(choice);
+                };
+            });
+        }
+
+        async function mergeInsertionSort(arr) {
+            if (arr.length <= 1) {
+                return arr;
+            }
+
+            let middle = Math.floor(arr.length / 2);
+            let left = await mergeInsertionSort(arr.slice(0, middle));
+            let right = await mergeInsertionSort(arr.slice(middle));
+
+            return await merge(left, right);
+        }
+
+        async function merge(left, right) {
+            let result = [], leftIndex = 0, rightIndex = 0;
+
+            while (leftIndex < left.length && rightIndex < right.length) {
+                let choice = await askUser(left[leftIndex], right[rightIndex]);
+                if (choice === 1) {
+                    result.push(left[leftIndex++]);
+                } else {
+                    result.push(right[rightIndex++]);
+                }
+            }
+
+            return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));
+        }
+    </script>
+</body>
+</html>
